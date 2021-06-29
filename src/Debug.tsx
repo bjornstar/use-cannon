@@ -1,29 +1,31 @@
-import React, { useContext, useState, useRef, useMemo } from 'react'
-import type { DebugOptions } from 'cannon-es-debugger'
 import cannonDebugger from 'cannon-es-debugger'
+import React, { useContext, useState, useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import type { Color } from 'three'
-import { Vector3, Quaternion, Scene } from 'three'
-import type { Vec3, Quaternion as CQuaternion } from 'cannon-es'
-import type { Body } from 'cannon-es'
-import { context, debugContext } from './setup'
-import propsToBody from './propsToBody'
-import type { BodyProps, BodyShapeType } from 'hooks'
+import { Quaternion, Scene, Vector3 } from 'three'
 
-type DebugApi = {
+import type { Body, Quaternion as CQuaternion, Vec3 } from 'cannon-es'
+import type { DebugOptions } from 'cannon-es-debugger'
+import type { PropsWithChildren } from 'react'
+import type { Color } from 'three'
+
+import { context, debugContext } from './hooks'
+import propsToBody from './propsToBody'
+
+import type { DebugApi } from './shared'
+
+type DebugInstance = {
   update: () => void
 }
 
-export type DebuggerInterface = (scene: Scene, bodies: Body[], props?: DebugOptions) => DebugApi
+export type DebuggerInterface = (scene: Scene, bodies: Body[], props?: DebugOptions) => DebugInstance
 
 export type DebugInfo = { bodies: Body[]; refs: { [uuid: string]: Body } }
 
-export type DebugProps = {
-  children: React.ReactNode
+export type DebugProps = PropsWithChildren<{
   color?: string | number | Color
   scale?: number
   impl?: DebuggerInterface
-}
+}>
 
 const v = new Vector3()
 const s = new Vector3(1, 1, 1)
@@ -38,7 +40,7 @@ export function Debug({
   const [debugInfo] = useState<DebugInfo>({ bodies: [], refs: {} })
   const { refs } = useContext(context)
   const [scene] = useState(() => new Scene())
-  const instance = useRef<DebugApi>()
+  const instance = useRef<DebugInstance>()
 
   let lastBodies = 0
   useFrame(() => {
@@ -61,17 +63,17 @@ export function Debug({
     instance.current.update()
   })
 
-  const api = useMemo(
+  const api: DebugApi = useMemo(
     () => ({
-      add(id: string, props: BodyProps, type: BodyShapeType) {
-        const body = propsToBody(id, props, type)
+      add(uuid, props, shapeType) {
+        const body = propsToBody(uuid, props, shapeType)
         debugInfo.bodies.push(body)
-        debugInfo.refs[id] = body
+        debugInfo.refs[uuid] = body
       },
-      remove(id: string) {
-        const debugBodyIndex = debugInfo.bodies.indexOf(debugInfo.refs[id])
+      remove(uuid) {
+        const debugBodyIndex = debugInfo.bodies.indexOf(debugInfo.refs[uuid])
         if (debugBodyIndex > -1) debugInfo.bodies.splice(debugBodyIndex, 1)
-        delete debugInfo.refs[id]
+        delete debugInfo.refs[uuid]
       },
     }),
     [],
