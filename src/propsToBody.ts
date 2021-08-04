@@ -113,7 +113,7 @@ const createBody = (props: BodyProps) => {
   return body
 }
 
-function propsToBody<T extends ShapeType>(
+function propsToBody<T extends ShapeType | 'Compound'>(
   uuid: string,
   { args, shapes = [], ...props }: PreparedBodyProps<T>,
   shapeType: T | 'Compound',
@@ -124,7 +124,6 @@ function propsToBody<T extends ShapeType>(
   if (shapeType === 'Compound') {
     shapes.forEach(addToBody(body))
   } else {
-    // @ts-expect-error We cannot spread args here for some reason
     body.addShape(createShape[shapeType](...args))
   }
 
@@ -132,10 +131,17 @@ function propsToBody<T extends ShapeType>(
 }
 
 function addToBody(body: Body) {
-  return ({ shapeType, args, position, rotation, material, ...extra }: CompoundShapeProps) => {
+  return <T extends ShapeType>({
+    shapeType,
+    args = [],
+    position,
+    rotation,
+    material,
+    ...extra
+  }: CompoundShapeProps<T>) => {
     const _offset = position && new Vec3(...position)
     const _orientation = rotation && new Quaternion().setFromEuler(...rotation)
-    const shape = body.addShape(createShape[shapeType](args as any), _offset, _orientation)
+    const shape = body.addShape(createShape[shapeType](...args), _offset, _orientation)
     if (material) shape.material = new Material(material)
     Object.assign(shape, extra)
   }

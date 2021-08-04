@@ -174,12 +174,12 @@ export type BodyProps = AtomicProps &
 
 export interface PublicBodyProps<T extends ShapeType | 'Compound'> extends BodyProps {
   args?: T extends 'Compound' ? [] : PublicArgs[T]
-  shapes?: T extends 'Compound' ? CompoundShapeProps[] : []
+  shapes?: T extends 'Compound' ? CompoundShapeProps<ShapeType>[] : []
 }
 
 export interface PreparedBodyProps<T extends ShapeType | 'Compound'> extends BodyProps {
-  args?: T extends 'Compound' ? [] : PreparedArgs[T]
-  shapes?: T extends 'Compound' ? CompoundShapeProps[] : []
+  args: T extends 'Compound' ? [] : PreparedArgs[T]
+  shapes: T extends 'Compound' ? CompoundShapeProps<ShapeType>[] : []
 }
 
 export type ConvexPolyhedronArgs<V extends VectorTypes> = [
@@ -214,10 +214,10 @@ export type PreparedArgs = {
   Trimesh: [vertices: number[], indices: number[]]
 }
 
-export type CompoundShapeProps<T extends ShapeType | unknown = unknown> = Pick<AtomicProps, 'material'> &
+export type CompoundShapeProps<T extends ShapeType> = Pick<AtomicProps, 'material'> &
   Pick<VectorProps, 'position' | 'rotation'> & {
     args?: T extends ShapeType ? PublicArgs[T] : []
-    shapeType: ShapeType
+    shapeType: T
   }
 
 export type ProviderContext = {

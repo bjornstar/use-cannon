@@ -219,8 +219,8 @@ function useBody<T extends ShapeType | 'Compound'>(
 
       refs[uuid] = object
       setupCollision(events, props, uuid)
-      const preparedArgs: PreparedArgs[T] = prepareArgs[shapeType](...args)
-      const preparedProps: PreparedBodyProps<T> = { ...props, args: preparedArgs }
+
+      const preparedProps: PreparedBodyProps<T> = { ...props, args: prepareArgs[shapeType](...args) }
       if (debugApi) debugApi.add(uuid, preparedProps, shapeType)
       return preparedProps
     })
