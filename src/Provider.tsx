@@ -11,8 +11,7 @@ import { context } from './setup'
 import CannonWorker from '../src/worker'
 import { useUpdateWorldPropsEffect } from './useUpdateWorldPropsEffect'
 
-import type { Buffers, Refs, Events, Subscriptions, ProviderContext } from './setup'
-import type { AtomicProps } from './hooks'
+import type { Buffers, Refs, Events, SubscriptionName, Subscriptions, SubscriptionValue, ProviderContext } from './setup'
 
 export type ProviderProps = {
   children: React.ReactNode
@@ -41,10 +40,15 @@ export type ProviderProps = {
   size?: number
 }
 
+type Observation<T extends SubscriptionName | unknown = unknown> = [
+  id: number,
+  value: T extends SubscriptionName ? SubscriptionValue[T] : never,
+]
+
 type WorkerFrameMessage = {
   data: Buffers & {
     op: 'frame'
-    observations: [key: string, value: AtomicProps[keyof AtomicProps] | number[]][]
+    observations: Observation[]
     active: boolean
     bodies?: string[]
   }
@@ -215,9 +219,11 @@ export default function Provider({
             }
           }
 
-          e.data.observations.forEach(([key, value]) => {
-            if (subscriptions[key]) subscriptions[key](value)
-          })
+          function doCallback([id, value]: Observation): void {
+            subscriptions[id] && subscriptions[id](value)
+          }
+
+          e.data.observations.forEach(doCallback)
 
           if (e.data.active) {
             for (const ref of Object.values(refs)) {

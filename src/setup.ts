@@ -8,6 +8,7 @@ import type {
   ConstraintTypes,
   SpringOptns,
   Triplet,
+  VectorProps,
   WheelInfoOptions,
 } from './hooks'
 import type { MutableRefObject } from 'react'
@@ -39,10 +40,11 @@ export type CollideEndEvent = {
 export type RayhitEvent = Omit<WorkerRayhitEvent['data'], 'body'> & { body: Object3D | null }
 export type Event = RayhitEvent | CollideEvent | CollideBeginEvent | CollideEndEvent
 export type Events = { [uuid: string]: (e: Event) => void }
-export type Subscriptions = {
-  [id: string]: (value: AtomicProps[AtomicName] | Triplet) => void
+export type SubscriptionCallback<T extends SubscriptionName> = (value: SubscriptionValue[T]) => void
+export type Subscriptions = { [T in SubscriptionName]: { [id: number]: (value: SubscriptionValue[T]) => void } }
+export type SubscriptionValue = AtomicProps & Record<CannonVectorName, Triplet> & {
+  sliding: boolean
 }
-
 export const atomicNames = [
   'allowSleep',
   'angularDamping',

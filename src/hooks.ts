@@ -13,9 +13,11 @@ import type {
   Events,
   RayMode,
   SetOpName,
+  SubscriptionCallback,
   Subscriptions,
   SubscriptionName,
   SubscriptionTarget,
+  SubscriptionValue,
   VectorName,
 } from './setup'
 import { Object3D, InstancedMesh, DynamicDrawUsage, Vector3, MathUtils } from 'three'
@@ -185,17 +187,17 @@ function getUUID(ref: Ref<Object3D>, index?: number): string | null {
   return ref && ref.current && `${ref.current.uuid}${suffix}`
 }
 
-function subscribe(
+function subscribe<T extends SubscriptionName>(
   ref: RefObject<Object3D>,
   worker: CannonWorker,
   subscriptions: Subscriptions,
-  type: SubscriptionName,
+  type: T,
   index?: number,
   target: SubscriptionTarget = 'bodies',
 ) {
-  return (callback: (value: any) => void) => {
-    const id = subscriptionGuid++
-    subscriptions[id] = callback
+  return (callback: (value: SubscriptionValue[T]) => void) => {
+    const id = subscriptionId++
+    subscriptions[type][id] = callback
     const uuid = getUUID(ref, index)
     uuid && worker.postMessage({ op: 'subscribe', uuid, props: { id, type, target } })
     return () => {
@@ -234,7 +236,7 @@ function setupCollision(
   }
 }
 
-let subscriptionGuid = 0
+let subscriptionId = 0
 
 type GetByIndex<T extends BodyProps> = (index: number) => T
 type ArgFn<T> = (args: T) => unknown[]
@@ -323,8 +325,8 @@ function useBody<B extends BodyProps<unknown>>(
         subscribe: subscribe(ref, worker, subscriptions, type, index),
       }
     }
-    const makeAtomic = (type: AtomicName, index?: number) => {
-      const op: SetOpName<AtomicName> = `set${capitalize(type)}`
+    const makeAtomic = <T extends AtomicName>(type: T, index?: number) => {
+      const op: SetOpName<T> = `set${capitalize(type)}`
       return {
         set: (value: any) => {
           const uuid = getUUID(ref, index)
