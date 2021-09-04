@@ -1,71 +1,37 @@
-import type { MaterialOptions } from 'cannon-es'
 import type { DependencyList, MutableRefObject, Ref, RefObject } from 'react'
 import type { Euler } from 'three'
 import type {
-  AddRayMessage,
   AtomicName,
+  AtomicProps,
+  BodyProps,
+  BodyShapeType,
   CannonWorker,
   CannonVectorName,
-  CollideBeginEvent,
-  CollideEndEvent,
-  CollideEvent,
-  Event,
-  Events,
+  ConstraintTypes,
+  DebugApi,
+  ProviderContext,
+  R3CannonEvent,
+  R3CannonEvents,
+  RaycastVehicleProps,
   RayMode,
+  RayOptions,
   SetOpName,
+  ShapeType,
+  SpringOptions,
   Subscriptions,
   SubscriptionName,
   SubscriptionTarget,
-  VectorName,
-} from './setup'
+  Triplet,
+  VectorProps
+} from './shared'
 import { Object3D, InstancedMesh, DynamicDrawUsage, Vector3, MathUtils } from 'three'
-import { useLayoutEffect, useContext, useRef, useMemo, useEffect, useState } from 'react'
-import { context, debugContext } from './setup'
+import { createContext, useLayoutEffect, useContext, useRef, useMemo, useEffect, useState } from 'react'
 
-export type AtomicProps = {
-  allowSleep: boolean
-  angularDamping: number
-  collisionFilterGroup: number
-  collisionFilterMask: number
-  collisionResponse: number
-  fixedRotation: boolean
-  isTrigger: boolean
-  linearDamping: number
-  mass: number
-  material: MaterialOptions
-  sleepSpeedLimit: number
-  sleepTimeLimit: number
-  userData: {}
-}
-
-export type VectorProps = Record<VectorName, Triplet>
-
-export type Triplet = [x: number, y: number, z: number]
 type VectorTypes = Vector3 | Triplet
-
-export type BodyProps<T = unknown> = Partial<AtomicProps> &
-  Partial<VectorProps> & {
-    args?: T
-    type?: 'Dynamic' | 'Static' | 'Kinematic'
-    onCollide?: (e: CollideEvent) => void
-    onCollideBegin?: (e: CollideBeginEvent) => void
-    onCollideEnd?: (e: CollideEndEvent) => void
-  }
 
 export type BodyPropsArgsRequired<T = unknown> = BodyProps<T> & {
   args: T
 }
-
-export type ShapeType =
-  | 'Plane'
-  | 'Box'
-  | 'Cylinder'
-  | 'Heightfield'
-  | 'Particle'
-  | 'Sphere'
-  | 'Trimesh'
-  | 'ConvexPolyhedron'
-export type BodyShapeType = ShapeType | 'Compound'
 
 export type CylinderArgs = [radiusTop?: number, radiusBottom?: number, height?: number, numSegments?: number]
 export type TrimeshArgs = [vertices: ArrayLike<number>, indices: ArrayLike<number>]
@@ -124,8 +90,6 @@ export interface PublicApi extends WorkerApi {
 }
 export type Api = [RefObject<Object3D>, PublicApi]
 
-export type ConstraintTypes = 'PointToPoint' | 'ConeTwist' | 'Distance' | 'Lock'
-
 export interface ConstraintOptns {
   maxForce?: number
   collideConnected?: boolean
@@ -157,16 +121,6 @@ export interface HingeConstraintOpts extends ConstraintOptns {
 }
 
 export type LockConstraintOpts = ConstraintOptns
-
-export interface SpringOptns {
-  restLength?: number
-  stiffness?: number
-  damping?: number
-  worldAnchorA?: Triplet
-  worldAnchorB?: Triplet
-  localAnchorA?: Triplet
-  localAnchorB?: Triplet
-}
 
 const temp = new Object3D()
 
@@ -213,12 +167,12 @@ function prepare(object: Object3D, props: BodyProps) {
 }
 
 function setupCollision(
-  events: Events,
+  events: R3CannonEvents,
   { onCollide, onCollideBegin, onCollideEnd }: Partial<BodyProps>,
-  id: string,
+  uuid: string,
 ) {
   if (onCollide || onCollideBegin || onCollideEnd) {
-    events[id] = (ev: Event) => {
+    events[uuid] = (ev: R3CannonEvent) => {
       switch (ev.type) {
         case 'collide':
           if (onCollide) onCollide(ev)
@@ -598,7 +552,7 @@ export function useLockConstraint(
 export function useSpring(
   bodyA: Ref<Object3D> = null,
   bodyB: Ref<Object3D> = null,
-  optns: SpringOptns,
+  options: SpringOptions,
   deps: DependencyList = [],
 ): SpringApi {
   const { worker } = useContext(context)
@@ -612,7 +566,7 @@ export function useSpring(
       worker.postMessage({
         op: 'addSpring',
         uuid,
-        props: [refA.current.uuid, refB.current.uuid, optns],
+        props: [refA.current.uuid, refB.current.uuid, options],
       })
       return () => {
         worker.postMessage({ op: 'removeSpring', uuid })
@@ -632,9 +586,7 @@ export function useSpring(
   return [refA, refB, api]
 }
 
-type RayOptions = Omit<AddRayMessage['props'], 'mode'>
-
-function useRay(mode: RayMode, options: RayOptions, callback: (e: Event) => void, deps: DependencyList = []) {
+function useRay(mode: RayMode, options: RayOptions, callback: (e: R3CannonEvent) => void, deps: DependencyList = []) {
   const { worker, events } = useContext(context)
   const [uuid] = useState(() => MathUtils.generateUUID())
   useEffect(() => {
@@ -649,17 +601,17 @@ function useRay(mode: RayMode, options: RayOptions, callback: (e: Event) => void
 
 export function useRaycastClosest(
   options: RayOptions,
-  callback: (e: Event) => void,
+  callback: (e: R3CannonEvent) => void,
   deps: DependencyList = [],
 ) {
   useRay('Closest', options, callback, deps)
 }
 
-export function useRaycastAny(options: RayOptions, callback: (e: Event) => void, deps: DependencyList = []) {
+export function useRaycastAny(options: RayOptions, callback: (e: R3CannonEvent) => void, deps: DependencyList = []) {
   useRay('Any', options, callback, deps)
 }
 
-export function useRaycastAll(options: RayOptions, callback: (e: Event) => void, deps: DependencyList = []) {
+export function useRaycastAll(options: RayOptions, callback: (e: R3CannonEvent) => void, deps: DependencyList = []) {
   useRay('All', options, callback, deps)
 }
 
@@ -670,34 +622,6 @@ export interface RaycastVehiclePublicApi {
   sliding: {
     subscribe: (callback: (sliding: boolean) => void) => void
   }
-}
-
-export interface WheelInfoOptions {
-  radius?: number
-  directionLocal?: Triplet
-  suspensionStiffness?: number
-  suspensionRestLength?: number
-  maxSuspensionForce?: number
-  maxSuspensionTravel?: number
-  dampingRelaxation?: number
-  dampingCompression?: number
-  sideAcceleration?: number
-  frictionSlip?: number
-  rollInfluence?: number
-  axleLocal?: Triplet
-  chassisConnectionPointLocal?: Triplet
-  isFrontWheel?: boolean
-  useCustomSlidingRotationalSpeed?: boolean
-  customSlidingRotationalSpeed?: number
-}
-
-export interface RaycastVehicleProps {
-  chassisBody: Ref<Object3D>
-  wheels: Ref<Object3D>[]
-  wheelInfos: WheelInfoOptions[]
-  indexForwardAxis?: number
-  indexRightAxis?: number
-  indexUpAxis?: number
 }
 
 function isString(v: unknown): v is string {
@@ -766,3 +690,6 @@ export function useRaycastVehicle(
   }, deps)
   return [ref, api]
 }
+
+export const context = createContext<ProviderContext>({} as ProviderContext)
+export const debugContext = createContext<DebugApi>({} as DebugApi)

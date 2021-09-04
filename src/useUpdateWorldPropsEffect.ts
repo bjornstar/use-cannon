@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
-import type { ProviderProps } from './Provider'
+import type { CannonWorker, ProviderProps } from './shared'
+
+type WorldPropName = 'axisIndex' | 'broadphase' | 'gravity' | 'iterations' | 'step' | 'tolerance'
 
 type useUpdateWorldPropsEffect = Pick<
   ProviderProps,
-  'gravity' | 'tolerance' | 'step' | 'iterations' | 'broadphase' | 'axisIndex'
-> & { worker: Worker }
+  WorldPropName
+> & { worker: CannonWorker }
 
 export function useUpdateWorldPropsEffect({
   worker,

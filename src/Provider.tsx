@@ -2,128 +2,15 @@ import React, { useState, useLayoutEffect, useRef, useMemo, useCallback } from '
 import { useThree, useFrame } from '@react-three/fiber'
 import { InstancedMesh, Vector3, Quaternion, Matrix4 } from 'three'
 
-import type { Shape } from 'cannon-es'
 import type { Object3D } from 'three'
 
-import { context } from './setup'
+import { context } from './hooks'
 
 // @ts-expect-error Types are not setup for this yet
 import CannonWorker from '../src/worker'
 import { useUpdateWorldPropsEffect } from './useUpdateWorldPropsEffect'
 
-import type { Buffers, Refs, Events, Subscriptions, ProviderContext } from './setup'
-import type { AtomicProps } from './hooks'
-
-export type ProviderProps = {
-  children: React.ReactNode
-  shouldInvalidate?: boolean
-
-  tolerance?: number
-  step?: number
-  iterations?: number
-
-  allowSleep?: boolean
-  broadphase?: 'Naive' | 'SAP'
-  gravity?: number[]
-  quatNormalizeFast?: boolean
-  quatNormalizeSkip?: number
-  solver?: 'GS' | 'Split'
-
-  axisIndex?: number
-  defaultContactMaterial?: {
-    friction?: number
-    restitution?: number
-    contactEquationStiffness?: number
-    contactEquationRelaxation?: number
-    frictionEquationStiffness?: number
-    frictionEquationRelaxation?: number
-  }
-  size?: number
-}
-
-type WorkerFrameMessage = {
-  data: Buffers & {
-    op: 'frame'
-    observations: [key: string, value: AtomicProps[keyof AtomicProps] | number[]][]
-    active: boolean
-    bodies?: string[]
-  }
-}
-
-export type WorkerCollideEvent = {
-  data: {
-    op: 'event'
-    type: 'collide'
-    target: string
-    body: string
-    contact: {
-      id: string
-      ni: number[]
-      ri: number[]
-      rj: number[]
-      impactVelocity: number
-      bi: string
-      bj: string
-      /** Contact point in world space */
-      contactPoint: number[]
-      /** Normal of the contact, relative to the colliding body */
-      contactNormal: number[]
-    }
-    collisionFilters: {
-      bodyFilterGroup: number
-      bodyFilterMask: number
-      targetFilterGroup: number
-      targetFilterMask: number
-    }
-  }
-}
-
-export type WorkerRayhitEvent = {
-  data: {
-    op: 'event'
-    type: 'rayhit'
-    ray: {
-      from: number[]
-      to: number[]
-      direction: number[]
-      collisionFilterGroup: number
-      collisionFilterMask: number
-      uuid: string
-    }
-    hasHit: boolean
-    body: string | null
-    shape: (Omit<Shape, 'body'> & { body: string }) | null
-    rayFromWorld: number[]
-    rayToWorld: number[]
-    hitNormalWorld: number[]
-    hitPointWorld: number[]
-    hitFaceIndex: number
-    distance: number
-    shouldStop: boolean
-  }
-}
-export type WorkerCollideBeginEvent = {
-  data: {
-    op: 'event'
-    type: 'collideBegin'
-    bodyA: string
-    bodyB: string
-  }
-}
-export type WorkerCollideEndEvent = {
-  data: {
-    op: 'event'
-    type: 'collideEnd'
-    bodyA: string
-    bodyB: string
-  }
-}
-type WorkerEventMessage =
-  | WorkerCollideEvent
-  | WorkerRayhitEvent
-  | WorkerCollideBeginEvent
-  | WorkerCollideEndEvent
-type IncomingWorkerMessage = WorkerFrameMessage | WorkerEventMessage
+import type { Buffers, IncomingWorkerMessage, ProviderProps, Refs, R3CannonEvents, Subscriptions } from './shared'
 
 const v = new Vector3()
 const s = new Vector3(1, 1, 1)
@@ -169,7 +56,7 @@ export default function Provider({
     positions: new Float32Array(size * 3),
     quaternions: new Float32Array(size * 4),
   }))
-  const [events] = useState<Events>({})
+  const [events] = useState<R3CannonEvents>({})
   const [subscriptions] = useState<Subscriptions>({})
 
   const bodies = useRef<{ [uuid: string]: number }>({})
@@ -309,5 +196,5 @@ export default function Provider({
     () => ({ worker, bodies, refs, buffers, events, subscriptions }),
     [worker, bodies, refs, buffers, events, subscriptions],
   )
-  return <context.Provider value={api as ProviderContext}>{children}</context.Provider>
+  return <context.Provider value={api}>{children}</context.Provider>
 }
