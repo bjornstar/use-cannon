@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Debug, Physics, useSphere, usePlane } from '@react-three/cannon'
+import { Debug, Physics, usePlane, useSphere } from '@react-three/cannon'
 
-function ScalableBall() {
+import type { SphereProps } from '@react-three/cannon'
+
+function Ball(props: SphereProps) {
   const [ref, api] = useSphere(() => ({
-    mass: 1,
     args: 1,
-    position: [0, 5, 0],
+    ...props,
   }))
   const [sleeping, setSleeping] = useState(false)
 
@@ -48,7 +49,7 @@ export default function App() {
       <Physics allowSleep>
         <Debug scale={1.1}>
           <Plane />
-          <ScalableBall />
+          <Ball mass={1} position={[0, 5, 0]} />
         </Debug>
       </Physics>
     </Canvas>

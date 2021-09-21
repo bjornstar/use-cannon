@@ -1,28 +1,19 @@
 import React, { useContext, useState, useRef, useMemo } from 'react'
-import type { DebugOptions } from 'cannon-es-debugger'
 import cannonDebugger from 'cannon-es-debugger'
 import { useFrame } from '@react-three/fiber'
-import type { Color } from 'three'
 import { Vector3, Quaternion, Scene } from 'three'
-import type { Vec3, Quaternion as CQuaternion } from 'cannon-es'
-import type { Body } from 'cannon-es'
+import type { Body, Vec3, Quaternion as CQuaternion } from 'cannon-es'
+import type { DebugOptions } from 'cannon-es-debugger'
 import { context, debugContext } from './setup'
 import propsToBody from './propsToBody'
-import type { BodyProps, BodyShapeType } from 'hooks'
 
-type DebugApi = {
-  update: () => void
-}
+import type { BodyProps, BodyShapeType } from './hooks'
 
-export type DebuggerInterface = (scene: Scene, bodies: Body[], props?: DebugOptions) => DebugApi
+type CannonDebugger = typeof cannonDebugger
 
-export type DebugInfo = { bodies: Body[]; refs: { [uuid: string]: Body } }
-
-export type DebugProps = {
+export type DebugProps = Pick<DebugOptions, 'color' | 'scale'> & {
   children: React.ReactNode
-  color?: string | number | Color
-  scale?: number
-  impl?: DebuggerInterface
+  impl?: CannonDebugger
 }
 
 const v = new Vector3()
@@ -30,48 +21,53 @@ const s = new Vector3(1, 1, 1)
 const q = new Quaternion()
 
 export function Debug({
-  color = 'black',
-  scale = 1,
   children,
+  color = 'black',
   impl = cannonDebugger,
+  scale = 1,
 }: DebugProps): JSX.Element {
-  const [debugInfo] = useState<DebugInfo>({ bodies: [], refs: {} })
-  const { refs } = useContext(context)
+  const [bodies] = useState<Body[]>([])
+  const [refs] = useState<{ [uuid: string]: Body }>({})
   const [scene] = useState(() => new Scene())
-  const instance = useRef<DebugApi>()
 
-  let lastBodies = 0
+  const { refs: cannonRefs } = useContext(context)
+
+  const ref = useRef<ReturnType<CannonDebugger> | null>(null)
+
+  let reset = true
   useFrame(() => {
-    if (!instance.current || lastBodies !== debugInfo.bodies.length) {
-      lastBodies = debugInfo.bodies.length
+    if (!ref.current || reset) {
+      reset = false
       scene.children = []
-      instance.current = impl(scene, debugInfo.bodies, {
+      ref.current = impl(scene, bodies, {
+        autoUpdate: false,
         color,
         scale,
-        autoUpdate: false,
       })
     }
 
-    for (const uuid in debugInfo.refs) {
-      refs[uuid].matrix.decompose(v, q, s)
-      debugInfo.refs[uuid].position.copy(v as unknown as Vec3)
-      debugInfo.refs[uuid].quaternion.copy(q as unknown as CQuaternion)
+    for (const uuid in refs) {
+      cannonRefs[uuid].matrix.decompose(v, q, s)
+      refs[uuid].position.copy(v as unknown as Vec3)
+      refs[uuid].quaternion.copy(q as unknown as CQuaternion)
     }
 
-    instance.current.update()
+    ref.current.update()
   })
 
   const api = useMemo(
     () => ({
-      add(id: string, props: BodyProps, type: BodyShapeType) {
-        const body = propsToBody(id, props, type)
-        debugInfo.bodies.push(body)
-        debugInfo.refs[id] = body
+      add(uuid: string, props: BodyProps, type: BodyShapeType) {
+        const body = propsToBody(uuid, props, type)
+        bodies.push(body)
+        refs[uuid] = body
+        reset = true
       },
-      remove(id: string) {
-        const debugBodyIndex = debugInfo.bodies.indexOf(debugInfo.refs[id])
-        if (debugBodyIndex > -1) debugInfo.bodies.splice(debugBodyIndex, 1)
-        delete debugInfo.refs[id]
+      remove(uuid: string) {
+        const index = bodies.indexOf(refs[uuid])
+        if (index !== -1) bodies.splice(index, 1)
+        delete refs[uuid]
+        reset = true
       },
     }),
     [],
