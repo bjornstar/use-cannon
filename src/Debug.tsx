@@ -9,7 +9,7 @@ import type { Body, Quaternion as CQuaternion, Vec3 } from 'cannon-es'
 import type { DebugOptions } from 'cannon-es-debugger'
 import type { PropsWithChildren } from 'react'
 import type { Color } from 'three'
-import type { BodyProps, BodyShapeType } from './hooks'
+import type { BodyPropMap, BodyShapeType } from './hooks'
 
 type DebugApi = {
   update: () => void
@@ -63,7 +63,7 @@ export function Debug({
 
   const api = useMemo(
     () => ({
-      add(id: string, props: BodyProps, type: BodyShapeType) {
+      add<T extends BodyShapeType>(id: string, props: BodyPropMap[T], type: T) {
         const body = propsToBody(id, props, type)
         debugInfo.bodies.push(body)
         debugInfo.refs[id] = body

@@ -40,13 +40,13 @@ export type AtomicProps = {
 export type Triplet = [x: number, y: number, z: number]
 
 export type VectorProps = Record<VectorName, Triplet>
-type VectorTypes = Vector3 | Triplet
+export type VectorTypes = Vector3 | Triplet
 
 export type Quad = [x: number, y: number, z: number, w: number]
 
 export type BodyProps<T extends any[] = unknown[]> = Partial<AtomicProps> &
   Partial<VectorProps> & {
-    args?: T
+    args: T
     onCollide?: (e: CollideEvent) => void
     onCollideBegin?: (e: CollideBeginEvent) => void
     onCollideEnd?: (e: CollideEndEvent) => void
@@ -70,6 +70,46 @@ export type ShapeType =
   | 'ConvexPolyhedron'
 export type BodyShapeType = ShapeType | 'Compound'
 
+type ShapeName = ShapeType
+type ShapeArgs<T extends ShapeName, U extends any[] = unknown[]> = { args: U, shapeName: T }
+
+import type { Box, ConvexPolyhedron, Cylinder, Heightfield, Particle, Plane, Sphere, Trimesh } from 'cannon-es'
+
+export type CannonClassMap = {
+  Box: typeof Box
+  ConvexPolyhedron: typeof ConvexPolyhedron
+  Cylinder: typeof Cylinder
+  Heightfield: typeof Heightfield
+  Particle: typeof Particle
+  Plane: typeof Plane
+  Sphere: typeof Sphere
+  Trimesh: typeof Trimesh
+}
+
+export type ArgsMap = {
+  Box: ShapeArgs<'Box', Triplet>
+  ConvexPolyhedron: ShapeArgs<'ConvexPolyhedron', ConvexPolyhedronArgs>
+  Cylinder: ShapeArgs<'Cylinder', CylinderArgs>
+  Heightfield: ShapeArgs<'Heightfield', HeightfieldArgs>
+  Particle: ShapeArgs<'Particle'>
+  Plane: ShapeArgs<'Plane'>
+  Sphere: ShapeArgs<'Sphere', SphereArgs>
+  Trimesh: ShapeArgs<'Trimesh', TrimeshArgs>
+}
+
+export type SerializableArgsMap = Omit<ArgsMap, 'ConvexPolyhedron' | 'Trimesh'> & {
+  ConvexPolyhedron: ShapeArgs<'ConvexPolyhedron', ConvexPolyhedronArgs<Triplet>>
+  Trimesh: ShapeArgs<'Trimesh', [vertices: number[], indices: number[]]>
+}
+
+export type SerializableBodyPropMap = Omit<BodyPropMap, 'ConvexPolyhedron' | 'Trimesh'> & {
+  ConvexPolyhedron: BodyProps<ConvexPolyhedronArgs<Triplet>>
+  Trimesh: BodyProps<[vertices: number[], indices: number[]]>
+}
+
+
+export type CannonArgs<T extends ShapeName> = { shapeName: T, args: ConstructorParameters<CannonClassMap[T]> }
+
 export type CylinderArgs = [radiusTop?: number, radiusBottom?: number, height?: number, numSegments?: number]
 export type SphereArgs = [radius: number]
 export type TrimeshArgs = [vertices: ArrayLike<number>, indices: ArrayLike<number>]
@@ -85,16 +125,28 @@ export type ConvexPolyhedronArgs<V extends VectorTypes = VectorTypes> = [
   boundingSphereRadius?: number,
 ]
 
-export type PlaneProps = BodyProps
 export type BoxProps = BodyProps<Triplet>
+export type ConvexPolyhedronProps = BodyProps<ConvexPolyhedronArgs>
 export type CylinderProps = BodyProps<CylinderArgs>
+export type HeightfieldProps = BodyPropsArgsRequired<HeightfieldArgs>
 export type ParticleProps = BodyProps
+export type PlaneProps = BodyProps
 export type SphereProps = BodyProps<SphereArgs>
 export type TrimeshProps = BodyPropsArgsRequired<TrimeshArgs>
-export type HeightfieldProps = BodyPropsArgsRequired<HeightfieldArgs>
-export type ConvexPolyhedronProps = BodyProps<ConvexPolyhedronArgs>
 export interface CompoundBodyProps extends BodyProps {
   shapes: BodyProps & { type: ShapeType }[]
+}
+
+export type BodyPropMap = {
+  Box: BodyProps<Triplet>
+  Compound: CompoundBodyProps
+  ConvexPolyhedron: BodyProps<ConvexPolyhedronArgs>
+  Cylinder: BodyProps<CylinderArgs>
+  Heightfield: BodyProps<HeightfieldArgs>
+  Particle: BodyProps
+  Plane: BodyProps
+  Sphere: BodyProps<SphereArgs>
+  Trimesh: BodyPropsArgsRequired<TrimeshArgs>
 }
 
 export type AtomicApi<K extends AtomicName> = {
@@ -245,7 +297,7 @@ function setupCollision(
 }
 
 type GetByIndex<T extends BodyProps> = (index: number) => T
-type ArgFn<T> = (args: T) => unknown[]
+type ArgFn<T extends any[] = unknown[]> = (args: T) => unknown[]
 
 function useBody<B extends BodyProps<unknown[]>>(
   type: BodyShapeType,
@@ -450,7 +502,7 @@ function useBody<B extends BodyProps<unknown[]>>(
   return [ref, api]
 }
 
-function makeTriplet(v: Vector3 | Triplet): Triplet {
+function makeTriplet(v: VectorTypes): Triplet {
   return v instanceof Vector3 ? [v.x, v.y, v.z] : v
 }
 
