@@ -96,7 +96,12 @@ function Vehicle({
     wheelInfos: [wheelInfo1, wheelInfo2, wheelInfo3, wheelInfo4],
   }))
 
-  useEffect(() => vehicleApi.sliding.subscribe((v) => console.log('sliding', v)), [])
+  // useEffect(() => vehicleApi.sliding.subscribe((v) => {/*console.log('sliding', v)*/}), [])
+  // useEffect(() => vehicleApi.numWheelsOnGround.subscribe((v) => {/*console.log('numWheelsOnGround', v)*/}), [])
+  useEffect(() => vehicleApi.isInContact.subscribe(0)((v) => { if (!v) console.log(0, v)}), [])
+  useEffect(() => vehicleApi.isInContact.subscribe(1)((v) => { if (!v) console.log(1, v)}), [])
+  useEffect(() => vehicleApi.isInContact.subscribe(2)((v) => { if (!v) console.log(2, v)}), [])
+  useEffect(() => vehicleApi.isInContact.subscribe(3)((v) => { if (!v) console.log(3, v)}), [])
 
   useFrame(() => {
     const { forward, backward, left, right, brake, reset } = controls.current

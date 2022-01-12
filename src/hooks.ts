@@ -216,7 +216,7 @@ function subscribe<T extends SubscriptionName>(
 ) {
   return (callback: (value: PropValue<T>) => void) => {
     const id = incrementingId++
-    subscriptions[id] = { [type]: callback }
+    subscriptions[id] = { [type as any]: callback }
     const uuid = getUUID(ref, index)
     uuid && worker.postMessage({ op: 'subscribe', uuid, props: { id, type, target } })
     return () => {
@@ -739,6 +739,12 @@ export function useRaycastAll(
 
 export interface RaycastVehiclePublicApi {
   applyEngineForce: (value: number, wheelIndex: number) => void
+  isInContact: {
+    subscribe: (wheelIndex: 0|1|2|3|4|5|6|7|8|9) => (callback: (isInContact: boolean) => void) => void
+  }
+  numWheelsOnGround: {
+    subscribe: (callback: (numWheelsOnGround: number) => void) => void
+  }
   setBrake: (brake: number, wheelIndex: number) => void
   setSteeringValue: (value: number, wheelIndex: number) => void
   sliding: {
@@ -821,21 +827,27 @@ export function useRaycastVehicle(
 
   const api = useMemo<RaycastVehiclePublicApi>(() => {
     return {
-      sliding: {
-        subscribe: subscribe(ref, worker, subscriptions, 'sliding', undefined, 'vehicles'),
-      },
-      setSteeringValue(value: number, wheelIndex: number) {
-        const uuid = getUUID(ref)
-        uuid && worker.postMessage({ op: 'setRaycastVehicleSteeringValue', props: [value, wheelIndex], uuid })
-      },
       applyEngineForce(value: number, wheelIndex: number) {
         const uuid = getUUID(ref)
         uuid && worker.postMessage({ op: 'applyRaycastVehicleEngineForce', props: [value, wheelIndex], uuid })
+      },
+      isInContact: {
+        subscribe: (wheelIndex: number) => subscribe(ref, worker, subscriptions, `wheelInfos.${wheelIndex}.isInContact`, undefined, 'vehicles')
+      },
+      numWheelsOnGround: {
+        subscribe: subscribe(ref, worker, subscriptions, 'numWheelsOnGround', undefined, 'vehicles'),
       },
       setBrake(brake: number, wheelIndex: number) {
         const uuid = getUUID(ref)
         uuid && worker.postMessage({ op: 'setRaycastVehicleBrake', props: [brake, wheelIndex], uuid })
       },
+      setSteeringValue(value: number, wheelIndex: number) {
+        const uuid = getUUID(ref)
+        uuid && worker.postMessage({ op: 'setRaycastVehicleSteeringValue', props: [value, wheelIndex], uuid })
+      },
+      sliding: {
+        subscribe: subscribe(ref, worker, subscriptions, 'sliding', undefined, 'vehicles'),
+      }
     }
   }, deps)
   return [ref, api]

@@ -33,6 +33,20 @@ const state = {
   lastCallTime: undefined,
 }
 
+function get(o, path) {
+	const [key, ...rest] = path
+
+	if (!o.hasOwnProperty(key)) {
+		return undefined;
+	}
+
+	if (path.length === 1) {
+		return o[key];
+	}
+
+	return get(o[key], rest);
+}
+
 function syncBodies() {
   state.bodiesNeedSyncing = true
   state.bodies = state.world.bodies.reduce((acc, body) => ({ ...acc, [body.uuid]: body }), {})
@@ -110,12 +124,12 @@ self.onmessage = (e) => {
       }
       const observations = []
       for (const id of Object.keys(state.subscriptions)) {
-        let [uuid, type, target = 'bodies'] = state.subscriptions[id]
-        let object = state[target]
+        const [uuid, property, target = 'bodies'] = state.subscriptions[id]
+        const object = state[target]
         if (!object || !object[uuid]) continue
-        let value = object[uuid][type]
+        const value = get(object[uuid], property.split('.'))
         if (value instanceof Vec3 || value instanceof Quaternion) value = value.toArray()
-        observations.push([id, value, type])
+        observations.push([id, value, property])
       }
       const message = {
         op: 'frame',
@@ -486,7 +500,8 @@ self.onmessage = (e) => {
       vehicle.preStep = () => {
         state.vehicles[uuid].updateVehicle(state.world.dt)
       }
-      ;(vehicle.postStep = () => {
+
+      vehicle.postStep = () => {
         for (let i = 0; i < state.vehicles[uuid].wheelInfos.length; i++) {
           state.vehicles[uuid].updateWheelTransform(i)
           const t = state.vehicles[uuid].wheelInfos[i].worldTransform
@@ -494,8 +509,9 @@ self.onmessage = (e) => {
           wheelBody.position.copy(t.position)
           wheelBody.quaternion.copy(t.quaternion)
         }
-      }),
-        (state.vehicles[uuid] = vehicle)
+      }
+
+      state.vehicles[uuid] = vehicle
       state.world.addEventListener('preStep', state.vehicles[uuid].preStep)
       state.world.addEventListener('postStep', state.vehicles[uuid].postStep)
       break
@@ -522,7 +538,6 @@ self.onmessage = (e) => {
       state.vehicles[uuid].setBrake(brake, wheelIndex)
       break
     }
-
     case 'wakeUp': {
       state.bodies[uuid].wakeUp()
       break

@@ -52,14 +52,16 @@ export type Subscriptions = Partial<{
   [id: number]: Subscription
 }>
 
-export type PropValue<T extends SubscriptionName = SubscriptionName> = T extends AtomicName
+export type PropValue<T extends SubscriptionName> = T extends AtomicName
   ? AtomicProps[T]
   : T extends VectorName
   ? Triplet
   : T extends 'quaternion'
   ? Quad
-  : T extends 'sliding'
+  : T extends 'sliding' | IsInContact
   ? boolean
+  : T extends 'numWheelsOnGround'
+  ? number
   : never
 
 export const atomicNames = [
@@ -88,8 +90,10 @@ export const vectorNames = [
 ] as const
 export type VectorName = typeof vectorNames[number]
 
-export const subscriptionNames = [...atomicNames, ...vectorNames, 'quaternion', 'sliding'] as const
-export type SubscriptionName = typeof subscriptionNames[number]
+type IsInContact = `wheelInfos.${number}.isInContact`
+
+export const subscriptionNames = [...atomicNames, ...vectorNames, 'numWheelsOnGround', 'quaternion', 'sliding'] as const
+export type SubscriptionName = typeof subscriptionNames[number] | IsInContact
 
 export type SetOpName<T extends AtomicName | VectorName | WorldPropName | 'quaternion' | 'rotation'> =
   `set${Capitalize<T>}`
