@@ -256,7 +256,7 @@ function useBody<B extends BodyProps<unknown[]>>(
   deps: DependencyList = [],
 ): Api {
   const ref = useForwardedRef(fwdRef)
-  const { worker, refs, events, subscriptions } = useContext(context)
+  const { cannonWorkerApi, events, refs, subscriptions, worker } = useContext(context)
   const debugApi = useContext(debugContext)
 
   useLayoutEffect(() => {
@@ -267,7 +267,6 @@ function useBody<B extends BodyProps<unknown[]>>(
     }
 
     const object = ref.current
-    const currentWorker = worker
 
     const objectCount =
       object instanceof InstancedMesh ? (object.instanceMatrix.setUsage(DynamicDrawUsage), object.count) : 1
@@ -299,7 +298,7 @@ function useBody<B extends BodyProps<unknown[]>>(
           })
 
     // Register on mount, unregister on unmount
-    currentWorker.postMessage({
+    cannonWorkerApi.worker.postMessage({
       op: 'addBodies',
       props: props.map(({ onCollide, onCollideBegin, onCollideEnd, ...serializableProps }) => {
         return { onCollide: Boolean(onCollide), ...serializableProps }
@@ -313,7 +312,7 @@ function useBody<B extends BodyProps<unknown[]>>(
         if (debugApi) debugApi.remove(id)
         delete events[id]
       })
-      currentWorker.postMessage({ op: 'removeBodies', uuid })
+      cannonWorkerApi.worker.postMessage({ op: 'removeBodies', uuid })
     }
   }, deps)
 

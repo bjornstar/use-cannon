@@ -1,9 +1,8 @@
 import { createContext } from 'react'
 
-import type { ContactMaterialOptions, MaterialOptions, RayOptions } from 'cannon-es'
+import type { ContactMaterial, ContactMaterialOptions, MaterialOptions, RayOptions, Shape } from 'cannon-es'
 import type { MutableRefObject } from 'react'
 import type { Object3D } from 'three'
-import type { ProviderProps, WorkerCollideEvent, WorkerRayhitEvent } from './Provider'
 import type {
   AtomicProps,
   BodyProps,
@@ -14,6 +13,40 @@ import type {
   Triplet,
   WheelInfoOptions,
 } from './hooks'
+import type { CannonWorkerApi } from 'worker/worker-api'
+
+export type Broadphase = 'Naive' | 'SAP'
+export type Solver = 'GS' | 'Split'
+
+export type DefaultContactMaterial = Partial<
+  Pick<
+    ContactMaterial,
+    | 'contactEquationRelaxation'
+    | 'contactEquationStiffness'
+    | 'friction'
+    | 'frictionEquationRelaxation'
+    | 'frictionEquationStiffness'
+    | 'restitution'
+  >
+>
+
+export type ProviderProps = {
+  allowSleep?: boolean
+  axisIndex?: number
+  broadphase?: Broadphase
+  defaultContactMaterial?: DefaultContactMaterial
+  gravity?: Triplet
+  iterations?: number
+  quatNormalizeFast?: boolean
+  quatNormalizeSkip?: number
+  shouldInvalidate?: boolean
+  size?: number
+  solver?: Solver
+  stepSize?: number
+  tolerance?: number
+}
+
+export type CannonWorkerApiProps = Omit<ProviderProps, 'shouldInvalidate'>
 
 export type Buffers = { positions: Float32Array; quaternions: Float32Array }
 export type Refs = { [uuid: string]: Object3D }
@@ -221,6 +254,32 @@ type BodiesMessage = AddBodiesMessage | RemoveBodiesMessage
 type SleepMessage = WithUUID<'sleep'>
 type WakeUpMessage = WithUUID<'wakeUp'>
 
+type InitMessage = Operation<
+  'init',
+  {
+    allowSleep: boolean
+    axisIndex: number
+    broadphase: Broadphase
+    defaultContactMaterial: DefaultContactMaterial
+    gravity: Triplet
+    iterations: number
+    quatNormalizeFast: boolean
+    quatNormalizeSkip: number
+    solver: Solver
+    tolerance: number
+  }
+>
+
+type StepMessage = Operation<
+  'step',
+  {
+    stepSize: number
+  }
+> & {
+  positions: Float32Array
+  quaternions: Float32Array
+}
+
 export type SubscriptionTarget = 'bodies' | 'vehicles'
 
 type SubscribeMessage = WithUUID<
@@ -235,7 +294,7 @@ type UnsubscribeMessage = Operation<'unsubscribe', number>
 
 type SubscriptionMessage = SubscribeMessage | UnsubscribeMessage
 
-export type WorldPropName = 'axisIndex' | 'broadphase' | 'gravity' | 'iterations' | 'step' | 'tolerance'
+export type WorldPropName = 'axisIndex' | 'broadphase' | 'gravity' | 'iterations' | 'tolerance'
 
 type WorldMessage<T extends WorldPropName> = Operation<SetOpName<T>, Required<ProviderProps[T]>>
 
@@ -245,25 +304,115 @@ type CannonMessage =
   | BodiesMessage
   | ConstraintMessage
   | ConstraintMotorMessage
+  | InitMessage
   | QuaternionMessage
   | RaycastVehicleMessage
   | RayMessage
   | RotationMessage
   | SleepMessage
   | SpringMessage
+  | StepMessage
   | ContactMaterialMessage
   | SubscriptionMessage
   | VectorMessage
   | WakeUpMessage
   | WorldMessage<WorldPropName>
 
+type Observation = { [K in AtomicName]: [id: number, value: PropValue<K>, type: K] }[AtomicName]
+
+export type WorkerFrameMessage = {
+  data: Buffers & {
+    active: boolean
+    bodies?: string[]
+    observations: Observation[]
+    op: 'frame'
+  }
+}
+
+export type WorkerCollideEvent = {
+  data: {
+    body: string
+    collisionFilters: {
+      bodyFilterGroup: number
+      bodyFilterMask: number
+      targetFilterGroup: number
+      targetFilterMask: number
+    }
+    contact: {
+      bi: string
+      bj: string
+      /** Normal of the contact, relative to the colliding body */
+      contactNormal: number[]
+      /** Contact point in world space */
+      contactPoint: number[]
+      id: string
+      impactVelocity: number
+      ni: number[]
+      ri: number[]
+      rj: number[]
+    }
+    op: 'event'
+    target: string
+    type: 'collide'
+  }
+}
+
+export type WorkerRayhitEvent = {
+  data: {
+    body: string | null
+    distance: number
+    hasHit: boolean
+    hitFaceIndex: number
+    hitNormalWorld: number[]
+    hitPointWorld: number[]
+    op: 'event'
+    ray: {
+      collisionFilterGroup: number
+      collisionFilterMask: number
+      direction: number[]
+      from: number[]
+      to: number[]
+      uuid: string
+    }
+    rayFromWorld: number[]
+    rayToWorld: number[]
+    shape: (Omit<Shape, 'body'> & { body: string }) | null
+    shouldStop: boolean
+    type: 'rayhit'
+  }
+}
+export type WorkerCollideBeginEvent = {
+  data: {
+    bodyA: string
+    bodyB: string
+    op: 'event'
+    type: 'collideBegin'
+  }
+}
+export type WorkerCollideEndEvent = {
+  data: {
+    bodyA: string
+    bodyB: string
+    op: 'event'
+    type: 'collideEnd'
+  }
+}
+type WorkerEventMessage =
+  | WorkerCollideBeginEvent
+  | WorkerCollideEndEvent
+  | WorkerCollideEvent
+  | WorkerRayhitEvent
+
+export type IncomingWorkerMessage = WorkerEventMessage | WorkerFrameMessage
+
 export interface CannonWorker extends Worker {
-  postMessage: (message: CannonMessage) => void
+  postMessage(message: CannonMessage, transfer: Transferable[]): void
+  postMessage(message: CannonMessage, options?: StructuredSerializeOptions): void
 }
 
 export type ProviderContext = {
   bodies: MutableRefObject<{ [uuid: string]: number }>
-  buffers: Buffers
+  cannonWorkerApi: CannonWorkerApi
   events: CannonEvents
   refs: Refs
   subscriptions: Subscriptions
