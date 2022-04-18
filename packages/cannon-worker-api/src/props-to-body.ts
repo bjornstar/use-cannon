@@ -12,11 +12,10 @@ import {
   Trimesh,
   Vec3,
 } from 'cannon-es'
-/**
- * @typedef { import('cannon-es').MaterialOptions } MaterialOptions
- */
+import type { BodyPropMap, ShapeType } from './body'
+import type { Triplet } from './types'
 
-const makeVec3 = ([x, y, z]) => new Vec3(x, y, z)
+const makeVec3 = ([x, y, z]: Triplet) => new Vec3(x, y, z)
 const prepareSphere = (args) => (Array.isArray(args) ? args : [args])
 const prepareConvexPolyhedron = ([v, faces, n, a, boundingSphereRadius]) => [
   {
@@ -28,10 +27,10 @@ const prepareConvexPolyhedron = ([v, faces, n, a, boundingSphereRadius]) => [
   },
 ]
 
-function createShape(type, args) {
-  switch (type) {
+function createShape<T extends ShapeType>(props: BodyPropMap[T]) {
+  switch (props.type) {
     case 'Box':
-      return new Box(new Vec3(...args.map((v) => v / 2))) // extents => halfExtents
+      return new Box(new Vec3(...props.extents.map((v) => v / 2))) // extents => halfExtents
     case 'ConvexPolyhedron':
       return new ConvexPolyhedron(...prepareConvexPolyhedron(args))
     case 'Cylinder':
@@ -49,15 +48,6 @@ function createShape(type, args) {
   }
 }
 
-/**
- * @function
- * @param {Object} options
- * @param {string} options.uuid
- * @param {BodyProps} options.props
- * @param {BodyShapeType} options.type
- * @param {(materialOptions: MaterialOptions) => Material =} options.createMaterial
- * @returns {Body}
- */
 export const propsToBody = (options) => {
   const { uuid, props, type, createMaterial = (materialOptions) => new Material(materialOptions) } = options
   const {

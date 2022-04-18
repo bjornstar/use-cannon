@@ -1,7 +1,7 @@
 import type {
   AtomicName,
   AtomicProps,
-  BodyProps,
+  BodyProps as WorkerApiBodyProps,
   BodyShapeType,
   BoxProps,
   CannonWorkerAPI,
@@ -80,6 +80,10 @@ export type WorkerApi = {
   wakeUp: () => void
 }
 
+export interface BodyProps<T extends any[] = unknown[]> extends WorkerApiBodyProps<T> {
+  scaleOverride: Triplet
+}
+
 export interface PublicApi extends WorkerApi {
   at: (index: number) => WorkerApi
 }
@@ -131,18 +135,24 @@ function subscribe<T extends SubscriptionName>(
   }
 }
 
-function prepare(object: Object3D, { position = [0, 0, 0], rotation = [0, 0, 0], userData = {} }: BodyProps) {
+function prepare(object: Object3D, {
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  scaleOverride = [0, 0, 0],
+  userData = {}
+}: Partial<Record<'position' | 'rotation' | 'scaleOverride', Triplet>> & { userData?: Record<PropertyKey, unknown> }) {
   object.userData = userData
   object.position.set(...position)
   object.rotation.set(...rotation)
+  object.scale.set(...scaleOverride)
   object.updateMatrix()
 }
 
 function setupCollision(
   events: CannonEvents,
-  { onCollide, onCollideBegin, onCollideEnd }: Partial<BodyProps>,
+  { onCollide, onCollideBegin, onCollideEnd }: Pick<BodyProps, 'onCollide' | 'onCollideBegin' | 'onCollideEnd'>,
   uuid: string,
-) {
+): void {
   events[uuid] = {
     collide: onCollide,
     collideBegin: onCollideBegin,
@@ -151,12 +161,10 @@ function setupCollision(
 }
 
 type GetByIndex<T extends BodyProps> = (index: number) => T
-type ArgFn<T> = (args: T) => unknown[]
 
-function useBody<B extends BodyProps<unknown[]>>(
+function useBody<B extends BodyProps>(
   type: BodyShapeType,
   fn: GetByIndex<B>,
-  argsFn: ArgFn<B['args']>,
   fwdRef: Ref<Object3D>,
   deps: DependencyList = [],
 ): Api {
@@ -193,7 +201,7 @@ function useBody<B extends BodyProps<unknown[]>>(
             refs[id] = object
             debugApi?.add(id, props, type)
             setupCollision(events, props, id)
-            return { ...props, args: argsFn(props.args) }
+            return props
           })
         : uuid.map((id, i) => {
             const props = fn(i)
@@ -201,7 +209,7 @@ function useBody<B extends BodyProps<unknown[]>>(
             refs[id] = object
             debugApi?.add(id, props, type)
             setupCollision(events, props, id)
-            return { ...props, args: argsFn(props.args) }
+            return props
           })
 
     // Register on mount, unregister on unmount

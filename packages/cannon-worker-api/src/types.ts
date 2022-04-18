@@ -228,7 +228,7 @@ export type WorkerCollideEvent = {
     }
     op: 'event'
     target: string
-    type: 'collide'
+    type: 'onCollide'
   }
 }
 
@@ -258,7 +258,7 @@ export type WorkerRayhitEvent = {
         > & { body: string })
       | null
     shouldStop: boolean
-    type: 'rayhit'
+    type: 'onRayhit'
   }
 }
 
@@ -267,7 +267,7 @@ export type WorkerCollideBeginEvent = {
     bodyA: string
     bodyB: string
     op: 'event'
-    type: 'collideBegin'
+    type: 'onCollideBegin'
   }
 }
 
@@ -276,7 +276,7 @@ export type WorkerCollideEndEvent = {
     bodyA: string
     bodyB: string
     op: 'event'
-    type: 'collideEnd'
+    type: 'onCollideEnd'
   }
 }
 

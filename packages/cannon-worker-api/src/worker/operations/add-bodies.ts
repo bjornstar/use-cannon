@@ -1,10 +1,21 @@
+import type { Body, ContactEquation } from 'cannon-es'
+
 import { propsToBody } from '../../props-to-body'
 import type { CannonMessageMap } from '../../types'
 import type { CreateMaterial } from '../material'
 import type { State } from '../state'
-import type { CannonCollideEvent, CannonWorkerGlobalScope } from '../types'
+import type { CannonWorkerGlobalScope } from '../types'
 
 declare const self: CannonWorkerGlobalScope
+
+type WithUUID<C> = C & { uuid?: string }
+
+interface CannonCollideEvent {
+  body: WithUUID<Body>
+  contact: ContactEquation
+  target: WithUUID<Body>
+  type: 'onCollide'
+}
 
 export const addBodies = (
   state: State,
@@ -21,7 +32,7 @@ export const addBodies = (
     state.world.addBody(body)
 
     if (props[i].onCollide)
-      body.addEventListener('collide', ({ type, body, target, contact }: CannonCollideEvent) => {
+      body.addEventListener('onCollide', ({ body, contact, target, type }: CannonCollideEvent) => {
         if (!body.uuid || !target.uuid) return
 
         const { ni, ri, rj, bi, bj, id } = contact

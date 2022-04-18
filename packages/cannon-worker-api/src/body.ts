@@ -22,20 +22,15 @@ export type AtomicProps = {
 export type VectorProps = Record<VectorName, Triplet>
 type VectorTypes = Vector3 | Triplet
 
-export type BodyProps<T extends any[] = unknown[]> = Partial<AtomicProps> &
+export type BodyProps<T extends Record<PropertyKey, unknown> = {}> = Partial<AtomicProps> &
   Partial<VectorProps> & {
-    args?: T
     onCollide?: (e: CollideEvent) => void
     onCollideBegin?: (e: CollideBeginEvent) => void
     onCollideEnd?: (e: CollideEndEvent) => void
     quaternion?: Quad
     rotation?: Triplet
     type?: 'Dynamic' | 'Static' | 'Kinematic'
-  }
-
-export type BodyPropsArgsRequired<T extends any[] = unknown[]> = BodyProps<T> & {
-  args: T
-}
+  } & T
 
 export type ShapeType =
   | 'Box'
@@ -48,29 +43,21 @@ export type ShapeType =
   | 'Trimesh'
 export type BodyShapeType = ShapeType | 'Compound'
 
-export type CylinderArgs = [radiusTop?: number, radiusBottom?: number, height?: number, numSegments?: number]
-export type SphereArgs = [radius: number]
-export type TrimeshArgs = [vertices: ArrayLike<number>, indices: ArrayLike<number>]
-export type HeightfieldArgs = [
-  data: number[][],
-  options: { elementSize?: number; maxValue?: number; minValue?: number },
-]
-export type ConvexPolyhedronArgs<V extends VectorTypes = VectorTypes> = [
-  vertices?: V[],
-  faces?: number[][],
-  normals?: V[],
-  axes?: V[],
-  boundingSphereRadius?: number,
-]
-
-export type PlaneProps = BodyProps
-export type BoxProps = BodyProps<Triplet>
-export type CylinderProps = BodyProps<CylinderArgs>
-export type ParticleProps = BodyProps
-export type SphereProps = BodyProps<SphereArgs>
-export type TrimeshProps = BodyPropsArgsRequired<TrimeshArgs>
-export type HeightfieldProps = BodyPropsArgsRequired<HeightfieldArgs>
-export type ConvexPolyhedronProps = BodyProps<ConvexPolyhedronArgs>
-export interface CompoundBodyProps extends BodyProps {
-  shapes: BodyProps & { type: ShapeType }[]
+export type BodyPropMap = {
+  Box: { extents?: Triplet; type: 'Box' }
+  CompoundBody: { shapes: (Omit<BodyProps, 'type'> & { type: ShapeType })[]; type: 'CompoundBody' }
+  ConvexPolyhedron: {
+    vertices?: VectorTypes[],
+    faces?: number[][],
+    normals?: VectorTypes[],
+    axes?: VectorTypes[],
+    boundingSphereRadius?: number,
+    type: 'ConvexPolyHedron'
+  }
+  Cylinder: { height?: number, numSegments?: number, radiusBottom?: number, radiusTop?: number; type: 'Cylinder' }
+  Heightfield: { data: number[][], options: { elementSize?: number, maxValue?: number, minValue?: number }; type: 'Heightfield' }
+  Particle: { type: 'Particle' }
+  Plane: { type: 'Plane' }
+  Sphere: { radius?: number; type: 'Sphere' }
+  Trimesh: { vertices: ArrayLike<number>, indices: ArrayLike<number>; type: 'Trimesh' }
 }
